@@ -1,6 +1,6 @@
 [package]
 name = "borrow-or-share"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Scallop Ye <yescallop@gmail.com>"]
 edition = "2021"
 rust-version = "1.65"
@@ -14,6 +14,9 @@ categories = ["rust-patterns"]
 [features]
 default = []
 std = []
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(no_rc, no_sync)'] }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

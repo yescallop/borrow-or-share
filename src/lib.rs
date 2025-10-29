@@ -195,9 +195,7 @@ use alloc::{
     borrow::{Cow, ToOwned},
     boxed::Box,
     ffi::CString,
-    rc::Rc,
     string::String,
-    sync::Arc,
     vec::Vec,
 };
 use core::ffi::CStr;
@@ -208,6 +206,11 @@ use std::{
     ffi::{OsStr, OsString},
     path::{Path, PathBuf},
 };
+
+#[cfg(not(no_rc))]
+use alloc::rc::Rc;
+#[cfg(all(not(no_rc), not(no_sync), target_has_atomic = "ptr"))]
+use alloc::sync::Arc;
 
 /// A trait for either borrowing or sharing data.
 ///
@@ -247,7 +250,10 @@ where
 }
 
 impl<'a, T: ?Sized> Bos<T> for &'a T {
-    type Ref<'this> = &'a T where Self: 'this;
+    type Ref<'this>
+        = &'a T
+    where
+        Self: 'this;
 
     #[inline]
     fn borrow_or_share(this: &Self) -> Self::Ref<'_> {
@@ -293,6 +299,8 @@ impl_bos! {
     {T: ?Sized} Box<T> => T
     {B: ?Sized + ToOwned} Cow<'_, B> => B
 
+    #[cfg(not(no_rc))]
     {T: ?Sized} Rc<T> => T
+    #[cfg(all(not(no_rc), not(no_sync), target_has_atomic = "ptr"))]
     {T: ?Sized} Arc<T> => T
 }
