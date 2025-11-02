@@ -1,6 +1,6 @@
 #![warn(missing_docs, rust_2018_idioms)]
 #![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![no_std]
 
 //! Traits for either borrowing or sharing data.
@@ -137,7 +137,10 @@
 //! these are out of scope, consider putting extra trait bounds in your
 //! code, preferably on a function that constructs your type.
 //!
+//! [`CString`]: alloc::ffi::CString
 //! [`Cow<'_, B>`]: Cow
+//! [`Rc<T>`]: alloc::rc::Rc
+//! [`Arc<T>`]: alloc::sync::Arc
 //!
 //! You can also implement [`Bos`] on your own type, for example:
 //!
@@ -166,9 +169,12 @@
 //!
 //! # Crate features
 //!
-//! - `std` (disabled by default): Enables [`Bos`] implementations on
-//!   [`OsString`] and [`PathBuf`].
+//! - `std` (disabled by default): Implies `alloc`. Required for
+//!   [`Bos`] implementations on [`OsString`] and [`PathBuf`].
+//!
+//! - `alloc`: Required for [`Bos`] implementations on [`alloc`] types.
 
+#[cfg(any(feature = "alloc", doc))]
 extern crate alloc;
 #[cfg(any(feature = "std", doc))]
 extern crate std;
@@ -191,26 +197,21 @@ mod internal {
     }
 }
 
+use internal::Ref;
+
+#[cfg(any(feature = "alloc", doc))]
 use alloc::{
     borrow::{Cow, ToOwned},
     boxed::Box,
-    ffi::CString,
     string::String,
     vec::Vec,
 };
-use core::ffi::CStr;
-use internal::Ref;
 
 #[cfg(any(feature = "std", doc))]
 use std::{
     ffi::{OsStr, OsString},
     path::{Path, PathBuf},
 };
-
-#[cfg(not(no_rc))]
-use alloc::rc::Rc;
-#[cfg(all(not(no_rc), not(no_sync), target_has_atomic = "ptr"))]
-use alloc::sync::Arc;
 
 /// A trait for either borrowing or sharing data.
 ///
@@ -286,21 +287,26 @@ impl_bos! {
     {T: ?Sized} &mut T => T
 
     {T, const N: usize} [T; N] => [T]
-    {T} Vec<T> => [T]
-
-    String => str
-    CString => CStr
 
     #[cfg(feature = "std")]
     OsString => OsStr
     #[cfg(feature = "std")]
     PathBuf => Path
+}
+
+#[cfg(feature = "alloc")]
+impl_bos! {
+    {T} Vec<T> => [T]
+
+    String => str
+    #[cfg(all(not(no_rc), not(no_sync), not(no_global_oom_handling)))]
+    alloc::ffi::CString => core::ffi::CStr
 
     {T: ?Sized} Box<T> => T
     {B: ?Sized + ToOwned} Cow<'_, B> => B
 
     #[cfg(not(no_rc))]
-    {T: ?Sized} Rc<T> => T
+    {T: ?Sized} alloc::rc::Rc<T> => T
     #[cfg(all(not(no_rc), not(no_sync), target_has_atomic = "ptr"))]
-    {T: ?Sized} Arc<T> => T
+    {T: ?Sized} alloc::sync::Arc<T> => T
 }
